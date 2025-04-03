@@ -38,11 +38,19 @@ def get_records_cached():
     if _cached_records and _cached_sheet and _cached_header:
         return _cached_records, _cached_sheet, _cached_header
 
-    scope = [
-        "https://spreadsheets.google.com/feeds",
-        "https://www.googleapis.com/auth/drive"
-    ]
-    creds = ServiceAccountCredentials.from_json_keyfile_name("telegrambotsheets-455615-7de17c85df06.json", scope)
+    import os
+    import json
+    from oauth2client.service_account import ServiceAccountCredentials
+
+    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+
+# Отримуємо JSON з env і перетворюємо у словник
+    creds_json = os.environ["GOOGLE_CREDS_JSON"]
+    creds_dict = json.loads(creds_json)
+
+# Створюємо credentials з словника
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+
     client = gspread.authorize(creds)
     sheet = client.open("Маршрути Л_КОРП - 2023-2025").worksheet("зелена карта")
     all_values = sheet.get_all_values()[:202]
@@ -177,10 +185,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Помилка: не знайдено відповідного стовпця.")
             return
 
-        data_rows = sheet.get_all_values()[3:]
         updated = False
-        for idx, row in enumerate(data_rows, start=4):
-            if len(row) > auto_index and row[auto_index] == plate:
+        for idx, record in enumerate(records, start=4):
+            if record.get("Авто") == plate:
                 sheet.update_cell(idx, doc_index, new_date)
                 updated = True
                 break
